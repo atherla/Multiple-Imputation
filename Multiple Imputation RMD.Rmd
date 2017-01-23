@@ -1,0 +1,113 @@
+---
+title: "Multiple Imputation Git"
+author: "Harrison Kennedy"
+date: "January 23, 2017"
+output: html_document
+---
+
+##Step 1 - Inspecting dataset
+
+* Packages Used
+    + MICE
+    + VIM
+
+**Read in data set**
+
+```{r results = 'hide'}
+
+data <- read.csv("hbat_miss_csv.csv")
+
+```
+
+When dealing with missing data, one must determine if the missing observations you have can be ignored i.e. deleted. To do this, the packages **MICE** and **VIM** are used to check for patterns amongst the missing pieces of information.
+
+```{r echo = FALSE, results = 'hide', warning=FALSE, message=FALSE}
+
+library(mice)
+library(VIM)
+
+```
+
+The code below uses the **MICE** package and provides details on the quantity of missing data broken down by each pattern. It can be seen that 26 observations are complete, 6 are missing the first variable, and so on. 
+
+```{r}
+
+md.pattern(data[ ,2:dim(data)[2]])
+
+```
+
+
+Below is a more visual representation of what the **MICE** package shows, using the **VIM** package.
+
+```{r message = FALSE}
+
+aggr(data[ ,2:dim(data)[2]], prop = FALSE, sortVars = TRUE, numbers = TRUE)
+
+``` 
+
+
+##Step 2 - Identifying Extent of Missing Data 
+
+The threshold used in this analysis for "too much" missing data is if an observation has 50% (or more) cases missing. We want to remove these specific observations from our analysis before proceeding with MI. To do this, we want to create a dummy variable indicating if there is a missing case or not. This will be done for each variable in our data frame. These binary variables will be used later to identify the kind of missing data we are dealing with. I have hidden the code for assigning the binary variables v2-v14 from this report.
+
+```{r}
+
+data$missv1 <- ifelse(is.na(data$v1), 1, 0)
+
+```
+
+```{r echo = FALSE}
+
+data$missv2 <- ifelse(is.na(data$v2), 1, 0)
+data$missv3 <- ifelse(is.na(data$v3), 1, 0)
+data$missv4 <- ifelse(is.na(data$v4), 1, 0)
+data$missv5 <- ifelse(is.na(data$v5), 1, 0)
+data$missv6 <- ifelse(is.na(data$v6), 1, 0)
+data$missv7 <- ifelse(is.na(data$v7), 1, 0)
+data$missv8 <- ifelse(is.na(data$v8), 1, 0)
+data$missv9 <- ifelse(is.na(data$v9), 1, 0)
+data$missv10 <- ifelse(is.na(data$v10), 1, 0)
+data$missv11 <- ifelse(is.na(data$v11), 1, 0)
+data$missv12 <- ifelse(is.na(data$v12), 1, 0)
+data$missv13 <- ifelse(is.na(data$v13), 1, 0)
+data$missv14 <- ifelse(is.na(data$v14), 1, 0)
+
+
+```
+
+
+Using all of these newly created variables, we are able to create one last variable that adds the binary variables to determine the quantity of missing data for each observations.
+
+```{r}
+
+data$total_miss <- rowSums(data[16:29])
+
+```
+
+
+Now that this variable has been created, we want to remove all observations that have a value of 7 or more. 
+
+```{r}
+
+data <- subset(data, total_miss < 7)
+
+```
+
+
+##Step 3 - Determining if Data is MCAR, MAR, or MNAR 
+
+
+Depending on the type of missing data we have, will determine if we can use sophisticated data replacement methods or not. The optimal "type" of missing data is MCAR, meaning that there is no rhyme or reason for the missing cases. To test for this, a simple t-test can be used to find out if the mean between the observations with missing cases, are significantly different from the ones without. The dummy variables created in the previous step will be used for this, I will begin testing *missv1*, if the p-value is insignificant there is insufficient evidence to prove that the means and different, therefore we assume the difference between the missing and non-missing groups were negligable. 
+
+```{r}
+
+t.test(v2 ~ missv1, data = data)
+
+
+
+```
+
+
+The resulting p-value of 0.7627 we determine there is no difference between the groups of missing and non-missing for the first variable, when compared to the second variable. 
+
+This process is repeated for all groupings of variables. Only for *v2*-*v9* for the groupings *missv1* and *missv2*.
